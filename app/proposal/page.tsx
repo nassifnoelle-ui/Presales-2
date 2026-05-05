@@ -38,6 +38,7 @@ function ProposalContent() {
   const [step, setStep] = useState<'setup' | 'generating' | 'editor'>('setup')
   const [error, setError] = useState('')
   const [expandedPanels, setExpandedPanels] = useState<Set<string>>(new Set(['A']))
+  const [apiKey, setApiKey] = useState(searchParams.get('api_key') || '')
   const [exporting, setExporting] = useState(false)
 
   function togglePart(id: string) {
@@ -75,7 +76,7 @@ function ProposalContent() {
         const res = await fetch('/api/generate-section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ part, client, project, ref, value, timeline, rfp }),
+          body: JSON.stringify({ part, client, project, ref, value, timeline, rfp, api_key: apiKey }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error)
@@ -161,6 +162,11 @@ function ProposalContent() {
             <div className="g3" style={{ marginBottom: 14 }}>
               <div><label className="f-label">Estimated value (AED)</label><input type="text" value={value} onChange={e => setValue(e.target.value)} placeholder="e.g. 1,200,000" /></div>
               <div><label className="f-label">Delivery timeline</label><input type="text" value={timeline} onChange={e => setTimeline(e.target.value)} placeholder="e.g. 27 weeks" /></div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label className="f-label">Anthropic API key <span style={{color:'var(--grayB)',fontWeight:400}}>(only needed if not configured on server)</span></label>
+              <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-ant-api03-..." />
+              <div className="f-hint">Stays in your browser session only</div>
             </div>
             <div style={{ marginBottom: 16 }}>
               <label className="f-label">RFP text</label>

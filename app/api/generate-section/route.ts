@@ -38,10 +38,10 @@ Return ONLY JSON:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { part, client, project, ref, value, timeline, rfp } = body
-    const apiKey = process.env.ANTHROPIC_API_KEY || ''
+    const { part, client, project, ref, value, timeline, rfp, api_key } = body
+    const apiKey = process.env.ANTHROPIC_API_KEY || api_key || ''
 
-    if (!apiKey) return NextResponse.json({ error: 'API key not configured.' }, { status: 500 })
+    if (!apiKey) return NextResponse.json({ error: 'No API key. Add ANTHROPIC_API_KEY in Vercel or enter it on screen.' }, { status: 500 })
     if (!PROMPTS[part]) return NextResponse.json({ error: 'Unknown part: ' + part }, { status: 400 })
 
     const ctx = {

@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { rfp_text, client, ref, sector, estimated_value } = body
-    const apiKey = process.env.ANTHROPIC_API_KEY || ''
+    const { rfp_text, client, ref, sector, estimated_value, api_key } = body
+    const apiKey = process.env.ANTHROPIC_API_KEY || api_key || ''
 
-    if (!apiKey) return NextResponse.json({ error: 'API key not configured on server.' }, { status: 500 })
+    if (!apiKey) return NextResponse.json({ error: 'No API key. Add ANTHROPIC_API_KEY in Vercel or enter it on screen.' }, { status: 500 })
     if (!rfp_text || rfp_text.trim().length < 50) return NextResponse.json({ error: 'RFP text too short.' }, { status: 400 })
 
     const safe = rfp_text.replace(/[\\"]/g, ' ').replace(/[\u0000-\u001F]/g, ' ').slice(0, 3000)

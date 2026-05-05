@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 export default function QualifyPage() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  const [apiKey, setApiKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [fileLoading, setFileLoading] = useState(false)
   const [error, setError] = useState('')
@@ -48,7 +49,7 @@ export default function QualifyPage() {
       const res = await fetch('/api/analyse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rfp_text: rfpText, client, ref, sector, estimated_value: value }),
+        body: JSON.stringify({ rfp_text: rfpText, client, ref, sector, estimated_value: value, api_key: apiKey }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -86,7 +87,7 @@ export default function QualifyPage() {
 
   function proceedToProposal() {
     const params = new URLSearchParams({
-      client, ref, project: oppName, value, rfp: rfpText.slice(0, 5000)
+      client, ref, project: oppName, value, rfp: rfpText.slice(0, 5000), api_key: apiKey
     })
     router.push('/proposal?' + params.toString())
   }
@@ -109,6 +110,13 @@ export default function QualifyPage() {
             <div><label className="f-label">Client name</label><input type="text" value={client} onChange={e => setClient(e.target.value)} placeholder="e.g. Ministry of Finance" /></div>
             <div><label className="f-label">RFP reference</label><input type="text" value={ref} onChange={e => setRef(e.target.value)} placeholder="e.g. MOF-IT-2026-001" /></div>
           </div>
+          {!process.env.NEXT_PUBLIC_HAS_KEY && (
+          <div style={{ marginBottom: 12 }}>
+            <label className="f-label">Anthropic API key <span style={{color:'var(--grayB)',fontWeight:400}}>(only needed if not configured on server)</span></label>
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-ant-api03-..." />
+            <div className="f-hint">Stays in your browser session only</div>
+          </div>
+          )}
           <div className="g3" style={{ marginBottom: 14 }}>
             <div><label className="f-label">Client sector</label><input type="text" value={sector} onChange={e => setSector(e.target.value)} placeholder="e.g. UAE Federal Government" /></div>
             <div><label className="f-label">Estimated value (AED)</label><input type="text" value={value} onChange={e => setValue(e.target.value)} placeholder="e.g. 1,200,000" /></div>

@@ -1,6 +1,11 @@
 {
   "framework": "nextjs",
   "functions": {
-    "app/api/**": { "maxDuration": 60 }
+    "app/api/extract-requirements/route.ts": { "maxDuration": 60 },
+    "app/api/generate-section/route.ts": { "maxDuration": 60 },
+    "app/api/analyse/route.ts": { "maxDuration": 60 },
+    "app/api/review-architecture/route.ts": { "maxDuration": 60 },
+    "app/api/chat/route.ts": { "maxDuration": 30 },
+    "app/api/export-proposal/route.ts": { "maxDuration": 30 }
   }
 }

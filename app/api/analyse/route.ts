@@ -96,6 +96,7 @@ Return this JSON:
     const analysis = JSON.parse(clean)
     return NextResponse.json({ success: true, analysis })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const msg = typeof err === 'string' ? err : (err?.message || 'Server error')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

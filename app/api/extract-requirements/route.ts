@@ -6,79 +6,156 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.ANTHROPIC_API_KEY || api_key || ''
     if (!apiKey) return NextResponse.json({ error: 'No API key configured.' }, { status: 500 })
 
-    const source = (rfp_text || dow_text || '')
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')  // control chars
-      .replace(/\\/g, ' ')   // backslashes
-      .replace(/`/g, "'")      // backticks
-      .trim()
-    if (source.trim().length < 50) {
+    const rawSource = rfp_text || dow_text || ''
+    if (rawSource.trim().length < 50) {
       return NextResponse.json({ error: 'RFP text too short to extract requirements.' }, { status: 400 })
     }
 
-    const safeSrc = source.replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF\u0750-\u077F]/g, ' ').slice(0, 4000)
-    const prompt = `You are a senior pre-sales consultant at emaratech Technology Solutions analysing an RFP or Description of Work document.
+    // Aggressive sanitisation — strip everything that can break JSON
+    const source = rawSource
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
+      .replace(/\\/g, '/')
+      .replace(/`/g, "'")
+      .replace(/\u2019|\u2018/g, "'")
+      .replace(/\u201C|\u201D/g, '"')
+      .replace(/\u2013|\u2014/g, '-')
+      .trim()
+
+    const safeSrc = source
+      .replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF\u0750-\u077F]/g, ' ')
+      .slice(0, 5000)
+
+    const prompt = `You are a senior pre-sales consultant and bid manager at emaratech Technology Solutions conducting a THOROUGH and RIGOROUS extraction of an RFP document.
 
 CLIENT: ${client || '[Client]'}
 PROJECT: ${project || '[Project]'}
 
-DOCUMENT TEXT:
+YOUR TASK:
+Read every line of this document carefully. Extract EVERYTHING that matters — do not summarise vaguely. Be specific, literal, and exhaustive. A requirement missed here will result in a non-compliant proposal.
+
+CRITICAL EXTRACTION RULES:
+1. Extract EXACT requirements — quote directly from the document where possible
+2. Identify ALL deadlines, dates, and timeframes — missing a submission deadline is catastrophic
+3. Extract ALL penalties, liquidated damages, and financial risks — these are HIGH priority risks
+4. Extract ALL mandatory submission documents — missing one can disqualify the bid
+5. Extract ALL named technologies, platforms, and tools mentioned — these define the tech stack
+6. Extract ALL compliance standards, certifications, and regulatory requirements
+7. Extract ALL commercial terms — bid bond, validity period, payment milestones, warranty
+8. Flag ALL contradictions and ambiguities in the document as risks
+9. Rate confidence HIGH only if the document is clear and complete — be honest
+
+DOCUMENT:
 ${safeSrc}
 
-Extract ALL requirements and key information from this document. Be thorough and specific — do not generalise. Every requirement should be traceable back to the source document.
+Return ONLY valid JSON with no markdown, no code blocks, no explanation. Every string value must use only standard ASCII quotes and no special characters.
 
-Return ONLY valid JSON with no markdown:
 {
   "functional_requirements": [
-    {"ref": "FR-01", "requirement": "exact requirement description", "priority": "Must", "source": "exact quote or section from document", "category": "Identity / CMS / Portal / Integration / UI / Accessibility / Other"},
-    {"ref": "FR-02", "requirement": "...", "priority": "Should", "source": "...", "category": "..."}
+    {
+      "ref": "FR-01",
+      "requirement": "EXACT requirement text from document — be specific not vague",
+      "priority": "Must",
+      "source": "exact section or quote from document",
+      "category": "one of: Identity/CMS/Portal/Integration/UI/Accessibility/Mobile/AI/Reporting/Admin/Other",
+      "severity": "one of: Critical/High/Medium/Low"
+    }
   ],
   "non_functional_requirements": [
-    {"ref": "NFR-01", "category": "Performance", "requirement": "exact requirement", "target": "specific target if stated e.g. <3 sec response time", "priority": "Must"},
-    {"ref": "NFR-02", "category": "Availability", "requirement": "...", "target": "...", "priority": "Must"},
-    {"ref": "NFR-03", "category": "Security", "requirement": "...", "target": "...", "priority": "Must"},
-    {"ref": "NFR-04", "category": "Accessibility", "requirement": "...", "target": "...", "priority": "Should"}
+    {
+      "ref": "NFR-01",
+      "category": "one of: Performance/Availability/Security/Accessibility/Scalability/Compatibility/Data/Disaster Recovery",
+      "requirement": "EXACT requirement with specific targets if stated",
+      "target": "specific measurable target e.g. 99.9% uptime, less than 3 second page load",
+      "priority": "Must"
+    }
   ],
   "technical_requirements": [
-    {"ref": "TR-01", "area": "Platform", "requirement": "exact technical requirement", "notes": "any additional context", "priority": "Must"},
-    {"ref": "TR-02", "area": "Integration", "requirement": "...", "notes": "...", "priority": "Must"}
+    {
+      "ref": "TR-01",
+      "area": "one of: Platform/Infrastructure/Integration/Security/DevOps/Architecture/Database/Hosting/Licensing",
+      "requirement": "EXACT technical requirement — name specific technologies if mentioned",
+      "notes": "any constraints or additional context",
+      "priority": "Must"
+    }
+  ],
+  "mandatory_submissions": [
+    {
+      "ref": "MS-01",
+      "document": "exact name of mandatory document or deliverable",
+      "description": "what it must contain",
+      "consequence": "what happens if missing e.g. bid disqualified"
+    }
   ],
   "submission_timeline": {
-    "submission_deadline": "exact date or TBD",
+    "submission_deadline": "EXACT date and time if stated — this is CRITICAL",
     "project_start": "exact date or TBD",
     "project_end": "exact date or TBD",
-    "delivery_duration": "e.g. 27 weeks or TBD",
+    "delivery_duration": "exact duration if stated",
+    "proposal_validity": "exact validity period if stated e.g. 90 days",
     "key_dates": [
-      {"date": "exact date or period", "event": "description of milestone or deadline"}
+      {
+        "date": "exact date or relative period",
+        "event": "exact description of milestone, deadline, or phase",
+        "critical": true
+      }
     ]
   },
-  "constraints": [
-    {"ref": "CON-01", "constraint": "exact constraint description", "type": "Technical / Commercial / Regulatory / Timeline / Resource"},
-    {"ref": "CON-02", "constraint": "...", "type": "..."}
-  ],
-  "risks": [
-    {"ref": "RISK-01", "risk": "specific risk description", "likelihood": "High / Medium / Low", "impact": "High / Medium / Low", "source": "where this risk was identified"},
-    {"ref": "RISK-02", "risk": "...", "likelihood": "...", "impact": "...", "source": "..."}
-  ],
-  "commercial": {
-    "estimated_value": "exact value if stated or TBD",
-    "bid_bond": "exact requirement if stated or Not stated",
-    "payment_terms": "exact terms if stated or Not stated",
-    "warranty_period": "exact period if stated or Not stated",
-    "validity_period": "exact period if stated or Not stated"
+  "commercial_terms": {
+    "estimated_value": "exact value if stated",
+    "bid_bond": "exact requirement — amount, format, validity",
+    "performance_bond": "exact requirement if stated",
+    "payment_terms": "exact payment milestone structure if stated",
+    "warranty_period": "exact period if stated",
+    "validity_period": "exact proposal validity if stated",
+    "pricing_structure": "description of required pricing format e.g. phase-wise BoQ"
   },
   "evaluation_criteria": [
-    {"criterion": "e.g. Technical approach", "weight": "e.g. 35%", "notes": "any additional detail"}
+    {
+      "criterion": "exact criterion name",
+      "weight": "exact percentage or score if stated",
+      "threshold": "minimum pass score if stated",
+      "notes": "any specific sub-criteria"
+    }
   ],
-  "additional_notes": "Any other important observations, ambiguities, or items that pre-sales should be aware of — written as a professional summary paragraph.",
+  "constraints": [
+    {
+      "ref": "CON-01",
+      "constraint": "EXACT constraint — be specific",
+      "type": "one of: Technical/Commercial/Regulatory/Timeline/Resource/Legal",
+      "impact": "what this means for emaratech's delivery or proposal"
+    }
+  ],
+  "risks": [
+    {
+      "ref": "RISK-01",
+      "risk": "SPECIFIC risk — name the exact clause, penalty, or condition creating the risk",
+      "likelihood": "High/Medium/Low",
+      "impact": "High/Medium/Low",
+      "financial_exposure": "exact penalty or exposure if stated e.g. 2x contract value, 0.5% per day",
+      "source": "exact section or quote from document",
+      "mitigation": "suggested mitigation for pre-sales"
+    }
+  ],
+  "compliance_standards": [
+    {
+      "ref": "COMP-01",
+      "standard": "exact standard or regulation name",
+      "mandatory": true,
+      "evidence_required": "what proof or certification is needed in the proposal"
+    }
+  ],
+  "additional_notes": "Detailed paragraph covering: ambiguities in the document, contradictions between sections, items that need clarification before submission, strategic observations for pre-sales.",
   "extraction_summary": {
-    "total_requirements": 15,
-    "must_count": 10,
-    "should_count": 4,
-    "nice_count": 1,
-    "risk_count": 3,
-    "constraint_count": 4,
-    "confidence": "High / Medium / Low",
-    "confidence_note": "Brief note on quality of extraction based on document clarity"
+    "total_functional": 0,
+    "total_nfr": 0,
+    "total_technical": 0,
+    "total_risks": 0,
+    "total_constraints": 0,
+    "mandatory_docs_count": 0,
+    "critical_risks": 0,
+    "confidence": "High/Medium/Low",
+    "confidence_note": "Honest assessment of document clarity and extraction completeness",
+    "top_3_risks": ["most critical risk 1", "most critical risk 2", "most critical risk 3"]
   }
 }`
 
@@ -91,7 +168,7 @@ Return ONLY valid JSON with no markdown:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     })
@@ -104,64 +181,64 @@ Return ONLY valid JSON with no markdown:
     const data = await response.json()
     const raw = data.content[0].text
     const clean = raw.replace(/```json|```/g, '').trim()
-    const extracted = JSON.parse(clean)
 
-    // Build compliance sheet from extracted requirements
+    let extracted: any
+    try {
+      extracted = JSON.parse(clean)
+    } catch {
+      // Try to extract just the JSON object if there's surrounding text
+      const match = clean.match(/\{[\s\S]*\}/)
+      if (match) {
+        extracted = JSON.parse(match[0])
+      } else {
+        throw new Error('Could not parse AI response as JSON. The document may contain unusual characters.')
+      }
+    }
+
+    // Build compliance sheet — include everything important
     const complianceItems: any[] = []
 
-    extracted.functional_requirements?.forEach((r: any) => {
-      complianceItems.push({
-        ref: r.ref,
-        type: 'Functional',
-        requirement: r.requirement,
-        priority: r.priority,
-        category: r.category,
-        stage1_status: 'not_started',
-        stage1_part: null,
-        stage2_status: 'not_started',
-        notes: '',
+    const addItems = (items: any[], type: string, reqField: string) => {
+      ;(items || []).forEach((r: any) => {
+        complianceItems.push({
+          ref: r.ref,
+          type,
+          requirement: r[reqField] || r.requirement || r.constraint || r.document || '',
+          priority: r.priority || r.mandatory ? 'Must' : 'Should',
+          category: r.category || r.area || r.type || 'General',
+          severity: r.severity || r.impact || 'Medium',
+          source: r.source || '',
+          financial_exposure: r.financial_exposure || '',
+          stage1_status: 'not_started',
+          stage1_part: null,
+          stage2_status: 'not_started',
+          notes: '',
+        })
       })
-    })
+    }
 
-    extracted.non_functional_requirements?.forEach((r: any) => {
+    addItems(extracted.functional_requirements || [], 'Functional', 'requirement')
+    addItems(extracted.non_functional_requirements || [], 'Non-functional', 'requirement')
+    addItems(extracted.technical_requirements || [], 'Technical', 'requirement')
+    addItems(extracted.mandatory_submissions || [], 'Mandatory submission', 'document')
+    addItems(extracted.constraints || [], 'Constraint', 'constraint')
+    addItems(extracted.compliance_standards || [], 'Compliance', 'standard')
+
+    // Add risks as high-priority items
+    ;(extracted.risks || []).forEach((r: any) => {
       complianceItems.push({
         ref: r.ref,
-        type: 'Non-functional',
-        requirement: r.requirement,
-        priority: r.priority,
-        category: r.category,
+        type: 'Risk',
+        requirement: r.risk,
+        priority: r.impact === 'High' ? 'Must' : 'Should',
+        category: 'Risk',
+        severity: r.impact || 'Medium',
+        source: r.source || '',
+        financial_exposure: r.financial_exposure || '',
         stage1_status: 'not_started',
         stage1_part: null,
         stage2_status: 'not_started',
-        notes: '',
-      })
-    })
-
-    extracted.technical_requirements?.forEach((r: any) => {
-      complianceItems.push({
-        ref: r.ref,
-        type: 'Technical',
-        requirement: r.requirement,
-        priority: r.priority,
-        category: r.area,
-        stage1_status: 'not_started',
-        stage1_part: null,
-        stage2_status: 'not_started',
-        notes: '',
-      })
-    })
-
-    extracted.constraints?.forEach((r: any) => {
-      complianceItems.push({
-        ref: r.ref,
-        type: 'Constraint',
-        requirement: r.constraint,
-        priority: 'Must',
-        category: r.type,
-        stage1_status: 'not_started',
-        stage1_part: null,
-        stage2_status: 'not_started',
-        notes: '',
+        notes: r.mitigation || '',
       })
     })
 

@@ -137,8 +137,10 @@ export default function ProposalWorkspace({ params }: { params: any }) {
           api_key: apiKey,
         })
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const text = await res.text()
+      let data: any
+      try { data = JSON.parse(text) } catch { throw new Error(text.slice(0, 200)) }
+      if (!res.ok) throw new Error(data.error || 'Server error ' + res.status)
       setStage0Data(data.extracted)
       setComplianceItems(data.compliance_items)
       // Save to DB
@@ -301,8 +303,10 @@ export default function ProposalWorkspace({ params }: { params: any }) {
             compliance_items: complianceItems,
           }),
         })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error)
+        const gtxt = await res.text()
+        let data: any
+        try { data = JSON.parse(gtxt) } catch { throw new Error(gtxt.slice(0,200)) }
+        if (!res.ok) throw new Error(data.error || 'Server error ' + res.status)
         newSections[part] = data.section
         setGenStatus(prev=>({...prev,[part]:'done'}))
       } catch { setGenStatus(prev=>({...prev,[part]:'error'})) }
@@ -346,8 +350,10 @@ export default function ProposalWorkspace({ params }: { params: any }) {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ message:msg, part:activePart, part_data:partData[activePart]||{}, rfp_text:proposal?.rfp_text||'', history:prev, api_key:apiKey }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const ctxt = await res.text()
+      let data: any
+      try { data = JSON.parse(ctxt) } catch { throw new Error(ctxt.slice(0,200)) }
+      if (!res.ok) throw new Error(data.error || 'Server error ' + res.status)
       setChatHistory(p=>({...p,[activePart]:[...next,{role:'assistant',content:data.reply}]}))
     } catch (e: any) {
       setChatHistory(p=>({...p,[activePart]:[...next,{role:'assistant',content:'⚠ '+e.message}]}))
@@ -393,8 +399,10 @@ export default function ProposalWorkspace({ params }: { params: any }) {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ arch_text:archText, rfp_text:proposal?.rfp_text||'', client:proposal?.client, project:proposal?.project, round:1, api_key:apiKey }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const txt2 = await res.text()
+      let data: any
+      try { data = JSON.parse(txt2) } catch { throw new Error(txt2.slice(0,200)) }
+      if (!res.ok) throw new Error(data.error || 'Server error ' + res.status)
       setArchReview(data.review)
       await patchProposal('arch_review', data.review)
     } catch (e: any) { setError(e.message) }

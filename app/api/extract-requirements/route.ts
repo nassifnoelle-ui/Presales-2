@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     const safeSrc = source
       .replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF\u0750-\u077F]/g, ' ')
-      .slice(0, 5000)
+      .slice(0, 8000)
 
     const prompt = `You are a senior pre-sales consultant and bid manager at emaratech Technology Solutions conducting a THOROUGH and RIGOROUS extraction of an RFP document.
 
@@ -187,10 +187,9 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Every s
     const raw = data.content[0].text
     const clean = raw.replace(/```json|```/g, '').trim()
 
+    const trimmed = clean.replace(/^﻿/, '').replace(/^\s+/, '')
     let extracted: any
     try {
-      // Remove any BOM or leading whitespace
-      const trimmed = clean.replace(/^\uFEFF/, '').replace(/^\s+/, '')
       extracted = JSON.parse(trimmed)
     } catch {
       // Try to extract just the JSON object if there's surrounding text

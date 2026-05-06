@@ -53,7 +53,7 @@ export default function ProposalWorkspace({ params }: { params: any }) {
   const [partData, setPartData] = useState<Record<string,any>>({})
   const [partsComplete, setPartsComplete] = useState<Record<string,boolean>>({})
   const [generatedSections, setGeneratedSections] = useState<Record<string,any>>({})
-  const [stage, setStage] = useState<'stage0'|'inputs'|'generated'>('stage0')
+  const [stage, setStage] = useState<'stage0'|'inputs'|'generated'|string>('stage0')
   const [genStatus, setGenStatus] = useState<Record<string,string>>({})
   const [genProgress, setGenProgress] = useState(0)
   const [error, setError] = useState('')

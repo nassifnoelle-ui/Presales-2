@@ -84,8 +84,10 @@ Return this JSON:
     })
 
     if (!response.ok) {
-      const err = await response.text()
-      throw new Error(`Anthropic error ${response.status}: ${err}`)
+      const errText = await response.text()
+      let errMsg = `Anthropic API error (${response.status})`
+      try { const errJson = JSON.parse(errText); errMsg = errJson?.error?.message || errMsg } catch {}
+      throw new Error(errMsg)
     }
 
     const data = await response.json()

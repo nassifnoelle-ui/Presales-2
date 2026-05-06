@@ -64,6 +64,7 @@ Respond conversationally but professionally. When suggesting content, format it 
     const data = await response.json()
     return NextResponse.json({ reply: data.content[0].text })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const msg = typeof err === 'string' ? err : (err?.message || 'Server error')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

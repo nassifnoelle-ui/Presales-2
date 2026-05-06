@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   try {
     const { rfp_text, dow_text, client, project, api_key } = await req.json()
     const apiKey = process.env.ANTHROPIC_API_KEY || api_key || ''
-    if (!apiKey) return NextResponse.json({ error: 'No API key. Enter your key in the API key field.' }, { status: 500 })
+    if (!apiKey) return NextResponse.json({ error: 'No API key. Enter your key in the API key field on screen.' }, { status: 500 })
 
     const rawSource = rfp_text || dow_text || ''
-    if (rawSource.trim().length < 50) return NextResponse.json({ error: 'Document too short.' }, { status: 400 })
+    if (rawSource.trim().length < 50) return NextResponse.json({ error: 'Document too short to extract requirements.' }, { status: 400 })
 
+    // Clean and limit to 4000 chars to stay well within timeout
     const source = rawSource
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
       .replace(/\\/g, '/')
@@ -17,119 +20,65 @@ export async function POST(req: NextRequest) {
       .replace(/\u201C|\u201D/g, '"')
       .replace(/\u2013|\u2014/g, '-')
       .replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF\u0750-\u077F]/g, ' ')
+      .replace(/\s{3,}/g, '\n')
       .trim()
-      .slice(0, 8000)
+      .slice(0, 4000)
 
-    const prompt = `You are a senior bid manager at emaratech Technology Solutions. Extract every requirement, risk, commercial term and deadline from this document.
-
+    const prompt = `Extract requirements from this RFP for emaratech Technology Solutions.
 CLIENT: ${client || '[Client]'} | PROJECT: ${project || '[Project]'}
 
 DOCUMENT:
 ${source}
 
-RULES — be literal and exhaustive:
-- Extract EXACT wording, not summaries
-- Capture ALL penalties, liquidated damages, liability clauses as HIGH risks with financial_exposure
-- Capture ALL dates — submission deadline is CRITICAL
-- Capture ALL mandatory submission documents — missing one disqualifies the bid
-- If phased delivery, break scope into separate phase entries
-- Risks include: penalty clauses, compressed timelines, resource requirements, tech stack mandates, compliance obligations, liability clauses, OSS obligations, VAPT requirements
-- Confidence HIGH only if document is clear and complete
+Return ONLY valid JSON, no markdown. Be specific and literal — quote exact wording. Extract ALL penalties and deadlines.
 
-Return ONLY valid JSON, no markdown:
 {
-  "overview": "2-3 sentence paragraph describing what this project is, who the client is, and the overall objective",
-  "submission_deadline": "EXACT date and time — e.g. 29 Apr 2026 15:30",
-  "proposal_validity": "e.g. 90 days",
-  "project_duration": "e.g. 12-18 months across 3 phases",
+  "overview": "2 sentence project description",
+  "submission_deadline": "exact date and time or TBD",
+  "proposal_validity": "e.g. 90 days or TBD",
+  "project_duration": "e.g. 12 months or TBD",
   "commercial_terms": {
-    "pricing_model": "e.g. Firm fixed price per phase",
-    "currency": "e.g. AED",
-    "vat": "e.g. 5%",
-    "payment": "e.g. Against validated milestones, paid within 45 days",
-    "bid_bond": "exact requirement or Not stated",
-    "performance_bond": "exact requirement or Not stated",
-    "warranty": "exact period or Not stated",
-    "validity": "exact period or Not stated",
-    "boq_format": "exact BoQ structure required or Not stated"
+    "pricing_model": "exact or Not stated",
+    "currency": "exact or Not stated",
+    "vat": "exact or Not stated",
+    "payment": "exact or Not stated",
+    "bid_bond": "exact or Not stated",
+    "performance_bond": "exact or Not stated",
+    "warranty": "exact or Not stated",
+    "validity": "exact or Not stated",
+    "boq_format": "exact or Not stated"
   },
-  "key_dates": [
-    {"date": "exact date", "event": "exact description", "critical": true}
-  ],
-  "phases": [
-    {
-      "name": "Phase 1 — e.g. Mobile Pilot",
-      "duration": "e.g. 3 months",
-      "go_live": "e.g. September 2026",
-      "scope": ["exact scope item 1", "exact scope item 2"],
-      "deliverables": ["deliverable 1", "deliverable 2"]
-    }
-  ],
-  "scope_of_work": "2-3 paragraph description of the full scope — what is in scope, what is explicitly out of scope, overall approach",
-  "functional_requirements": [
-    {
-      "ref": "FR-01",
-      "phase": "Phase 1 / All phases / Phase 2",
-      "category": "Identity / Portal / Mobile / Integration / AI / CMS / Contact Centre / Accessibility / Other",
-      "requirement": "EXACT requirement from document",
-      "priority": "Must",
-      "source": "section reference"
-    }
-  ],
-  "non_functional_requirements": [
-    {
-      "ref": "NFR-01",
-      "category": "Performance / Availability / Security / Scalability / Accessibility / Data / DR",
-      "requirement": "EXACT requirement",
-      "target": "specific measurable target if stated",
-      "priority": "Must"
-    }
-  ],
-  "technical_requirements": [
-    {
-      "ref": "TR-01",
-      "area": "Platform / Infrastructure / Integration / Security / DevOps / Architecture / Hosting / Licensing",
-      "requirement": "EXACT technical requirement — name specific technologies",
-      "constraint": "any hard constraint e.g. must use X, must not use Y",
-      "priority": "Must"
-    }
-  ],
-  "mandatory_submission_docs": [
-    {
-      "ref": "MS-01",
-      "document": "exact document name",
-      "detail": "what it must contain",
-      "consequence": "e.g. Bid disqualified / Negatively impacts score"
-    }
-  ],
-  "evaluation_criteria": [
-    {"criterion": "e.g. Functional Requirements", "weight": "25%", "threshold": "70% to proceed to commercial"}
-  ],
-  "risks": [
-    {
-      "ref": "RISK-01",
-      "category": "Commercial / Technical / Resource / Legal / Timeline / Compliance",
-      "risk": "SPECIFIC risk — name the clause, penalty, or condition",
-      "financial_exposure": "exact penalty if stated — e.g. 2x contract value, 0.5% per day, or None stated",
-      "likelihood": "High / Medium / Low",
-      "impact": "High / Medium / Low",
-      "mitigation": "concrete mitigation pre-sales should take"
-    }
-  ],
-  "additional_notes": "Paragraph covering ambiguities, contradictions, items needing clarification, strategic observations",
-  "confidence": "High / Medium / Low",
-  "confidence_note": "Why this confidence level"
+  "key_dates": [{"date": "exact date", "event": "description", "critical": true}],
+  "phases": [{"name": "Phase name", "duration": "duration", "go_live": "date or TBD", "scope": ["item1","item2"], "deliverables": ["del1"]}],
+  "scope_of_work": "2-3 paragraphs on full scope",
+  "functional_requirements": [{"ref":"FR-01","phase":"Phase 1","category":"Identity","requirement":"exact requirement","priority":"Must"}],
+  "non_functional_requirements": [{"ref":"NFR-01","category":"Performance","requirement":"exact requirement","target":"specific target","priority":"Must"}],
+  "technical_requirements": [{"ref":"TR-01","area":"Platform","requirement":"exact requirement","constraint":"hard constraint if any","priority":"Must"}],
+  "mandatory_submission_docs": [{"ref":"MS-01","document":"exact name","detail":"what it must contain","consequence":"e.g. Bid disqualified"}],
+  "evaluation_criteria": [{"criterion":"name","weight":"percentage","threshold":"pass mark if stated"}],
+  "risks": [{"ref":"RISK-01","category":"Commercial","risk":"specific risk with clause reference","financial_exposure":"exact penalty or None stated","likelihood":"High","impact":"High","mitigation":"suggested action"}],
+  "additional_notes": "ambiguities, contradictions, strategic observations",
+  "confidence": "High",
+  "confidence_note": "reason"
 }`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 8000, messages: [{ role: 'user', content: prompt }] })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
     })
 
     if (!response.ok) {
       const errText = await response.text()
-      let errMsg = `API error (${response.status})`
+      let errMsg = `Anthropic API error (${response.status})`
       try { const j = JSON.parse(errText); errMsg = j?.error?.message || errMsg } catch {}
       throw new Error(errMsg)
     }
@@ -151,9 +100,7 @@ Return ONLY valid JSON, no markdown:
       }
     }
 
-    // Build compliance items from all requirement types
     const complianceItems: any[] = []
-
     const addItems = (items: any[], type: string, reqField: string) => {
       ;(items || []).forEach((r: any) => {
         complianceItems.push({

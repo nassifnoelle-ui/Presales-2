@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
     const section = JSON.parse(clean)
     return NextResponse.json({ success: true, section })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const msg = typeof err === 'string' ? err : (err?.message || 'Server error')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

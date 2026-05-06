@@ -66,6 +66,9 @@ export default function ProposalWorkspace({ params }: { params: any }) {
   const [stage0Confirmed, setStage0Confirmed] = useState(false)
   const [complianceItems, setComplianceItems] = useState<ComplianceItem[]>([])
   const [editingReq, setEditingReq] = useState<string|null>(null)
+  const [editingRisk, setEditingRisk] = useState<string|null>(null)
+  const [editingTimeline, setEditingTimeline] = useState<string|null>(null)
+  const [editingCommercial, setEditingCommercial] = useState<string|null>(null)
 
   // Compliance sidebar
   const [complianceOpen, setComplianceOpen] = useState(false)
@@ -146,14 +149,74 @@ export default function ProposalWorkspace({ params }: { params: any }) {
   }
 
   async function confirmStage0() {
-    await patchProposal('stage0_confirmed', true)
+    await patchProposal('stage0_data', stage0Data)
     await patchProposal('compliance_items', complianceItems)
+    await patchProposal('stage0_confirmed', true)
     setStage0Confirmed(true)
     setStage('inputs')
   }
 
+  async function saveStage0Draft() {
+    await patchProposal('stage0_data', stage0Data)
+    await patchProposal('compliance_items', complianceItems)
+    setSaved(true)
+    setTimeout(()=>setSaved(false), 2000)
+  }
+
   function updateComplianceItem(ref: string, field: string, value: string) {
     setComplianceItems(prev => prev.map(item => item.ref === ref ? {...item, [field]: value} : item))
+  }
+
+  function updateRisk(ref: string, field: string, value: string) {
+    setStage0Data((prev: any) => ({
+      ...prev,
+      risks: (prev?.risks || []).map((r: any) => r.ref === ref ? {...r, [field]: value} : r)
+    }))
+  }
+
+  function deleteRisk(ref: string) {
+    setStage0Data((prev: any) => ({...prev, risks: (prev?.risks||[]).filter((r: any) => r.ref !== ref)}))
+  }
+
+  function addRisk() {
+    const ref = 'RISK-' + String((stage0Data?.risks?.length||0)+1).padStart(2,'0')
+    setStage0Data((prev: any) => ({
+      ...prev,
+      risks: [...(prev?.risks||[]), {ref, risk:'New risk', likelihood:'Medium', impact:'Medium', financial_exposure:'', source:'', mitigation:''}]
+    }))
+  }
+
+  function updateTimelineField(field: string, value: string) {
+    setStage0Data((prev: any) => ({...prev, submission_timeline: {...(prev?.submission_timeline||{}), [field]: value}}))
+  }
+
+  function updateKeyDate(i: number, field: string, value: string) {
+    setStage0Data((prev: any) => {
+      const dates = [...(prev?.submission_timeline?.key_dates||[])]
+      dates[i] = {...dates[i], [field]: value}
+      return {...prev, submission_timeline: {...(prev?.submission_timeline||{}), key_dates: dates}}
+    })
+  }
+
+  function addKeyDate() {
+    setStage0Data((prev: any) => ({
+      ...prev,
+      submission_timeline: {
+        ...(prev?.submission_timeline||{}),
+        key_dates: [...(prev?.submission_timeline?.key_dates||[]), {date:'', event:'', critical: false}]
+      }
+    }))
+  }
+
+  function deleteKeyDate(i: number) {
+    setStage0Data((prev: any) => {
+      const dates = (prev?.submission_timeline?.key_dates||[]).filter((_: any, j: number) => j !== i)
+      return {...prev, submission_timeline: {...(prev?.submission_timeline||{}), key_dates: dates}}
+    })
+  }
+
+  function updateCommercialField(field: string, value: string) {
+    setStage0Data((prev: any) => ({...prev, commercial_terms: {...(prev?.commercial_terms||{}), [field]: value}}))
   }
 
   function deleteComplianceItem(ref: string) {
@@ -454,41 +517,65 @@ export default function ProposalWorkspace({ params }: { params: any }) {
                 <>
                   {/* Summary stats */}
                   <div className="metric-row">
-                    <div className="metric"><div className="m-label">Total requirements</div><div className="m-val">{stage0Data.extraction_summary?.total_requirements||complianceItems.length}</div></div>
-                    <div className="metric"><div className="m-label">Must</div><div className="m-val" style={{color:'var(--red)'}}>{stage0Data.extraction_summary?.must_count||0}</div></div>
-                    <div className="metric"><div className="m-label">Should</div><div className="m-val" style={{color:'var(--amber)'}}>{stage0Data.extraction_summary?.should_count||0}</div></div>
-                    <div className="metric"><div className="m-label">Risks identified</div><div className="m-val">{stage0Data.risks?.length||0}</div></div>
-                    <div className="metric"><div className="m-label">Extraction confidence</div><div style={{marginTop:6}}><span className={`pill ${stage0Data.extraction_summary?.confidence==='High'?'pill-green':stage0Data.extraction_summary?.confidence==='Medium'?'pill-amber':'pill-red'}`}>{stage0Data.extraction_summary?.confidence||'—'}</span></div></div>
+                    <div className="metric"><div className="m-label">Total items</div><div className="m-val">{complianceItems.length}</div><div className="m-sub">In compliance sheet</div></div>
+                    <div className="metric"><div className="m-label">Functional reqs</div><div className="m-val" style={{color:'var(--dark)'}}>{stage0Data.extraction_summary?.total_functional||stage0Data.functional_requirements?.length||0}</div></div>
+                    <div className="metric"><div className="m-label">Risks</div><div className="m-val" style={{color:'var(--red)'}}>{stage0Data.risks?.length||0}</div><div className="m-sub">{(stage0Data.extraction_summary?.critical_risks||0)} critical</div></div>
+                    <div className="metric"><div className="m-label">Mandatory docs</div><div className="m-val" style={{color:'var(--amber)'}}>{stage0Data.mandatory_submissions?.length||0}</div><div className="m-sub">Required in submission</div></div>
+                    <div className="metric"><div className="m-label">Confidence</div><div style={{marginTop:6}}><span className={`pill ${stage0Data.extraction_summary?.confidence==='High'?'pill-green':stage0Data.extraction_summary?.confidence==='Medium'?'pill-amber':'pill-red'}`}>{stage0Data.extraction_summary?.confidence||'—'}</span></div><div className="m-sub" style={{fontSize:10,marginTop:4}}>{stage0Data.extraction_summary?.confidence_note?.slice(0,40)}</div></div>
                   </div>
+                  {stage0Data.extraction_summary?.top_3_risks?.length > 0 && (
+                    <div style={{background:'var(--redL)',border:'1px solid #F0C0C0',borderLeft:'4px solid var(--red)',borderRadius:'0 8px 8px 0',padding:'12px 16px'}}>
+                      <div style={{fontSize:11,fontWeight:700,color:'var(--red)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.05em'}}>Top 3 critical risks</div>
+                      {stage0Data.extraction_summary.top_3_risks.map((r: string, i: number) => (
+                        <div key={i} style={{display:'flex',gap:8,fontSize:12,color:'var(--red)',marginBottom:4,alignItems:'flex-start'}}>
+                          <span style={{flexShrink:0,fontWeight:700}}>{i+1}.</span>{r}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                  {/* Submission timeline */}
+                  {/* Submission timeline - editable */}
                   {stage0Data.submission_timeline && (
                     <div className="card">
-                      <div className="card-title">Submission timeline</div>
-                      <div className="g4">
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                        <div className="card-title" style={{margin:0}}>Submission timeline</div>
+                        <span style={{fontSize:10,color:'var(--textL)'}}>Click any field to edit</span>
+                      </div>
+                      <div className="g4" style={{marginBottom:16}}>
                         {[
-                          ['Submission deadline', stage0Data.submission_timeline.submission_deadline],
-                          ['Project start', stage0Data.submission_timeline.project_start],
-                          ['Delivery duration', stage0Data.submission_timeline.delivery_duration],
-                          ['Project end', stage0Data.submission_timeline.project_end],
-                        ].map(([label, value]) => (
-                          <div key={label} style={{background:'var(--grayL)',borderRadius:8,padding:'10px 14px'}}>
-                            <div style={{fontSize:10,color:'var(--textL)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4}}>{label}</div>
-                            <div style={{fontSize:13,fontWeight:700,color:'var(--dark)'}}>{value||'TBD'}</div>
+                          ['submission_deadline','Submission deadline ⚠','var(--red)'],
+                          ['project_start','Project start','var(--dark)'],
+                          ['delivery_duration','Delivery duration','var(--dark)'],
+                          ['proposal_validity','Proposal validity','var(--dark)'],
+                        ].map(([field, label, color]) => (
+                          <div key={field} style={{background: field==='submission_deadline'?'var(--redL)':'var(--grayL)',borderRadius:8,padding:'10px 14px',border:field==='submission_deadline'?'1px solid #F0C0C0':'1px solid var(--grayM)'}}>
+                            <div style={{fontSize:10,color: field==='submission_deadline'?'var(--red)':'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>{label}</div>
+                            {editingTimeline===field
+                              ? <input type="text" autoFocus value={(stage0Data.submission_timeline as any)[field]||''} onChange={e=>updateTimelineField(field,e.target.value)} onBlur={()=>setEditingTimeline(null)}
+                                  style={{width:'100%',fontSize:13,fontWeight:700,color:color as string,background:'transparent',border:'none',borderBottom:'2px solid var(--bright)',outline:'none',fontFamily:'inherit',padding:'2px 0'}} />
+                              : <div onClick={()=>setEditingTimeline(field)} style={{fontSize:13,fontWeight:700,color:color as string,cursor:'pointer',minHeight:20}}>{(stage0Data.submission_timeline as any)[field]||'Click to add'}</div>
+                            }
                           </div>
                         ))}
                       </div>
-                      {stage0Data.submission_timeline.key_dates?.length > 0 && (
-                        <div style={{marginTop:12}}>
-                          <div style={{fontSize:10,fontWeight:700,color:'var(--textL)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>Key dates</div>
-                          {stage0Data.submission_timeline.key_dates.map((kd: any, i: number) => (
-                            <div key={i} style={{display:'flex',gap:12,padding:'6px 0',borderBottom:'1px solid var(--grayM)',fontSize:12}}>
-                              <span style={{fontWeight:600,minWidth:120,color:'var(--bright)'}}>{kd.date}</span>
-                              <span style={{color:'var(--textM)'}}>{kd.event}</span>
-                            </div>
-                          ))}
+                      <div>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                          <div style={{fontSize:10,fontWeight:700,color:'var(--textL)',textTransform:'uppercase' as const,letterSpacing:'.05em'}}>Key dates</div>
+                          <button className="btn-second btn-small" onClick={addKeyDate}>+ Add date</button>
                         </div>
-                      )}
+                        {(stage0Data.submission_timeline.key_dates||[]).map((kd: any, i: number) => (
+                          <div key={i} style={{display:'flex',gap:8,padding:'6px 0',borderBottom:'1px solid var(--grayM)',alignItems:'center'}}>
+                            <input type="text" value={kd.date||''} onChange={e=>updateKeyDate(i,'date',e.target.value)} placeholder="Date"
+                              style={{width:140,fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--grayM)',fontFamily:'inherit',background:kd.critical?'var(--redL)':'var(--grayL)',fontWeight:600,color:kd.critical?'var(--red)':'var(--dark)',outline:'none'}} />
+                            <input type="text" value={kd.event||''} onChange={e=>updateKeyDate(i,'event',e.target.value)} placeholder="Event description"
+                              style={{flex:1,fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--grayM)',fontFamily:'inherit',background:'var(--grayL)',outline:'none'}} />
+                            <label style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'var(--red)',cursor:'pointer',flexShrink:0}}>
+                              <input type="checkbox" checked={kd.critical||false} onChange={e=>updateKeyDate(i,'critical',String(e.target.checked))} style={{accentColor:'var(--red)'}} />Critical
+                            </label>
+                            <button onClick={()=>deleteKeyDate(i)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -547,64 +634,154 @@ export default function ProposalWorkspace({ params }: { params: any }) {
                     </div>
                   </div>
 
-                  {/* Risks */}
-                  {stage0Data.risks?.length > 0 && (
+                  {/* Risks - editable */}
+                  <div className="card">
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                      <div className="card-title" style={{margin:0}}>Risks · click any cell to edit</div>
+                      <button className="btn-second btn-small" onClick={addRisk}>+ Add risk</button>
+                    </div>
+                    {(!stage0Data.risks || stage0Data.risks.length === 0) && (
+                      <div style={{fontSize:12,color:'var(--grayB)',textAlign:'center',padding:'20px 0'}}>No risks extracted — click Add risk to add manually</div>
+                    )}
+                    {(stage0Data.risks||[]).map((r: any, i: number) => {
+                      const rCol = (v: string) => v==='High'?'var(--red)':v==='Medium'?'var(--amber)':'var(--green)'
+                      const rBg = (v: string) => v==='High'?'var(--redL)':v==='Medium'?'var(--amberL)':'var(--greenL)'
+                      return (
+                        <div key={r.ref} style={{border:'1px solid var(--grayM)',borderLeft:`4px solid ${rCol(r.impact)}`,borderRadius:'0 8px 8px 0',marginBottom:8,padding:'12px 14px',background:i%2===0?'var(--grayL)':'#fff'}}>
+                          <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
+                            <span style={{fontSize:10,fontWeight:700,color:rCol(r.impact),flexShrink:0,minWidth:60}}>{r.ref}</span>
+                            {editingRisk===r.ref+'-risk'
+                              ? <textarea autoFocus value={r.risk||''} onChange={e=>updateRisk(r.ref,'risk',e.target.value)} onBlur={()=>setEditingRisk(null)}
+                                  style={{flex:1,fontSize:12,fontWeight:600,fontFamily:'inherit',border:'1px solid var(--bright)',borderRadius:6,padding:'6px',resize:'vertical',minHeight:50,outline:'none'}} />
+                              : <div onClick={()=>setEditingRisk(r.ref+'-risk')} style={{flex:1,fontSize:12,fontWeight:600,color:'var(--dark)',cursor:'pointer',lineHeight:1.5}}>{r.risk||'Click to edit'}</div>
+                            }
+                            <button onClick={()=>deleteRisk(r.ref)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
+                          </div>
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto auto',gap:8,alignItems:'center'}}>
+                            <div>
+                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Financial exposure</div>
+                              {editingRisk===r.ref+'-exp'
+                                ? <input autoFocus type="text" value={r.financial_exposure||''} onChange={e=>updateRisk(r.ref,'financial_exposure',e.target.value)} onBlur={()=>setEditingRisk(null)}
+                                    style={{width:'100%',fontSize:11,fontWeight:700,color:'var(--red)',border:'1px solid var(--bright)',borderRadius:4,padding:'3px 6px',fontFamily:'inherit',outline:'none'}} />
+                                : <div onClick={()=>setEditingRisk(r.ref+'-exp')} style={{fontSize:11,fontWeight:700,color:r.financial_exposure?'var(--red)':'var(--grayB)',cursor:'pointer'}}>{r.financial_exposure||'None stated — click to add'}</div>
+                              }
+                            </div>
+                            <div>
+                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Mitigation</div>
+                              {editingRisk===r.ref+'-mit'
+                                ? <input autoFocus type="text" value={r.mitigation||''} onChange={e=>updateRisk(r.ref,'mitigation',e.target.value)} onBlur={()=>setEditingRisk(null)}
+                                    style={{width:'100%',fontSize:11,border:'1px solid var(--bright)',borderRadius:4,padding:'3px 6px',fontFamily:'inherit',outline:'none'}} />
+                                : <div onClick={()=>setEditingRisk(r.ref+'-mit')} style={{fontSize:11,color:r.mitigation?'var(--textM)':'var(--grayB)',cursor:'pointer'}}>{r.mitigation||'Click to add mitigation'}</div>
+                              }
+                            </div>
+                            <div>
+                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Likelihood</div>
+                              <select value={r.likelihood||'Medium'} onChange={e=>updateRisk(r.ref,'likelihood',e.target.value)}
+                                style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:rBg(r.likelihood),color:rCol(r.likelihood),fontWeight:700,fontFamily:'inherit',cursor:'pointer'}}>
+                                <option>High</option><option>Medium</option><option>Low</option>
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Impact</div>
+                              <select value={r.impact||'Medium'} onChange={e=>updateRisk(r.ref,'impact',e.target.value)}
+                                style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:rBg(r.impact),color:rCol(r.impact),fontWeight:700,fontFamily:'inherit',cursor:'pointer'}}>
+                                <option>High</option><option>Medium</option><option>Low</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Mandatory submissions */}
+                  {stage0Data.mandatory_submissions?.length > 0 && (
                     <div className="card">
-                      <div className="card-title">Risks extracted from RFP</div>
+                      <div className="card-title">Mandatory submission documents — missing any of these may disqualify the bid</div>
                       <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
                         <thead><tr style={{background:'var(--dark)'}}>
                           <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:80}}>Ref</th>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Risk</th>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:90}}>Likelihood</th>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:90}}>Impact</th>
+                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Document required</th>
+                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:200}}>Must contain</th>
+                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:160}}>Consequence if missing</th>
                         </tr></thead>
                         <tbody>
-                          {stage0Data.risks.map((r: any, i: number) => {
-                            const rCol = (v: string) => v==='High'?'var(--red)':v==='Medium'?'var(--amber)':'var(--green)'
-                            const rBg = (v: string) => v==='High'?'var(--redL)':v==='Medium'?'var(--amberL)':'var(--greenL)'
-                            return (
-                              <tr key={r.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--grayL)':'#fff'}}>
-                                <td style={{padding:'8px 10px',fontWeight:700,color:'var(--red)',fontSize:10}}>{r.ref}</td>
-                                <td style={{padding:'8px 10px',lineHeight:1.5}}>{r.risk}</td>
-                                <td style={{padding:'8px 10px',textAlign:'center'}}><span style={{background:rBg(r.likelihood),color:rCol(r.likelihood),padding:'2px 8px',borderRadius:20,fontSize:9,fontWeight:700}}>{r.likelihood}</span></td>
-                                <td style={{padding:'8px 10px',textAlign:'center'}}><span style={{background:rBg(r.impact),color:rCol(r.impact),padding:'2px 8px',borderRadius:20,fontSize:9,fontWeight:700}}>{r.impact}</span></td>
-                              </tr>
-                            )
-                          })}
+                          {stage0Data.mandatory_submissions.map((m: any, i: number) => (
+                            <tr key={m.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--redL)':'#fff9f9'}}>
+                              <td style={{padding:'8px 10px',fontWeight:700,color:'var(--red)',fontSize:10}}>{m.ref}</td>
+                              <td style={{padding:'8px 10px',fontWeight:600,color:'var(--dark)'}}>{m.document}</td>
+                              <td style={{padding:'8px 10px',color:'var(--textM)',fontSize:10}}>{m.description}</td>
+                              <td style={{padding:'8px 10px',color:'var(--red)',fontSize:10,fontWeight:600}}>{m.consequence}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
                   )}
 
-                  {/* Commercial */}
-                  {stage0Data.commercial && (
+                  {/* Compliance standards */}
+                  {stage0Data.compliance_standards?.length > 0 && (
                     <div className="card">
-                      <div className="card-title">Commercial terms extracted</div>
-                      <div className="g3">
-                        {Object.entries(stage0Data.commercial).map(([k,v]) => (
-                          <div key={k} style={{background:'var(--grayL)',borderRadius:8,padding:'10px 14px'}}>
-                            <div style={{fontSize:10,color:'var(--textL)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4}}>{k.replace(/_/g,' ')}</div>
-                            <div style={{fontSize:12,fontWeight:600,color:'var(--dark)'}}>{String(v)||'Not stated'}</div>
+                      <div className="card-title">Compliance standards and certifications required</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                        {stage0Data.compliance_standards.map((s: any) => (
+                          <div key={s.ref} style={{background:'var(--off)',border:'1px solid var(--bright)',borderRadius:8,padding:'8px 12px',minWidth:160}}>
+                            <div style={{fontSize:10,fontWeight:700,color:'var(--bright)',marginBottom:3}}>{s.ref}</div>
+                            <div style={{fontSize:12,fontWeight:600,color:'var(--dark)',marginBottom:3}}>{s.standard}</div>
+                            {s.evidence_required && <div style={{fontSize:10,color:'var(--textL)'}}>{s.evidence_required}</div>}
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
+                  {/* Commercial terms - editable */}
+                  <div className="card">
+                    <div className="card-title">Commercial terms · click any field to edit</div>
+                    <div className="g3">
+                      {[
+                        ['estimated_value','Estimated value'],
+                        ['bid_bond','Bid bond requirement'],
+                        ['performance_bond','Performance bond'],
+                        ['payment_terms','Payment terms'],
+                        ['warranty_period','Warranty period'],
+                        ['validity_period','Proposal validity'],
+                        ['pricing_structure','Pricing structure required'],
+                      ].map(([field, label]) => (
+                        <div key={field} style={{background:'var(--grayL)',borderRadius:8,padding:'10px 14px',border:'1px solid var(--grayM)'}}>
+                          <div style={{fontSize:10,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>{label}</div>
+                          {editingCommercial===field
+                            ? <textarea autoFocus value={(stage0Data.commercial_terms as any)?.[field]||''} onChange={e=>updateCommercialField(field,e.target.value)} onBlur={()=>setEditingCommercial(null)}
+                                style={{width:'100%',fontSize:12,fontWeight:600,color:'var(--dark)',border:'1px solid var(--bright)',borderRadius:6,padding:'4px 6px',fontFamily:'inherit',resize:'vertical',minHeight:48,outline:'none'}} />
+                            : <div onClick={()=>setEditingCommercial(field)} style={{fontSize:12,fontWeight:600,color:(stage0Data.commercial_terms as any)?.[field]?'var(--dark)':'var(--grayB)',cursor:'pointer',lineHeight:1.5,minHeight:20}}>
+                                {(stage0Data.commercial_terms as any)?.[field]||'Not stated — click to add'}
+                              </div>
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Additional notes */}
                   {stage0Data.additional_notes && (
                     <div className="callout"><strong>Additional notes: </strong>{stage0Data.additional_notes}</div>
                   )}
 
-                  {/* Confirm button */}
+                  {/* Save and confirm */}
                   <div style={{display:'flex',gap:12,alignItems:'center',background:'var(--dark)',borderRadius:12,padding:20}}>
                     <div style={{flex:1}}>
                       <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Confirm requirements and proceed to Stage 1</div>
                       <div style={{fontSize:12,color:'rgba(255,255,255,.6)'}}>Once confirmed, these requirements will track coverage through Stage 1 and Stage 2. You can still view and update them via the compliance sidebar.</div>
                     </div>
-                    <button className="btn-success" onClick={confirmStage0} style={{whiteSpace:'nowrap',flexShrink:0}}>
-                      ✓ Confirm and proceed →
-                    </button>
+                    <div style={{display:'flex',gap:8,flexShrink:0}}>
+                      <button className="btn-second" onClick={saveStage0Draft} style={{whiteSpace:'nowrap',background:'rgba(255,255,255,.1)',color:'var(--grayB)',border:'1px solid rgba(255,255,255,.2)'}}>
+                        Save draft
+                      </button>
+                      {saved && <span style={{fontSize:12,color:'var(--bright)',alignSelf:'center'}}>✓ Saved</span>}
+                      <button className="btn-success" onClick={confirmStage0} style={{whiteSpace:'nowrap'}}>
+                        ✓ Confirm and proceed →
+                      </button>
+                    </div>
                   </div>
                 </>
               )}

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       ref: ref || '[Ref]',
       value: value || 'TBD',
       timeline: timeline || '[Timeline]',
-      rfp: (rfp || '').replace(/[\\"]/g, ' ').replace(/[\u0000-\u001F]/g, ' '),
+      rfp: (rfp || '').replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF]/g, ' '),
     }
 
     const prompt = buildPrompt(part, ctx, part_inputs || {}, arch_review || null)

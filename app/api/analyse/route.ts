@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     if (!apiKey) return NextResponse.json({ error: 'No API key. Add ANTHROPIC_API_KEY in Vercel or enter it on screen.' }, { status: 500 })
     if (!rfp_text || rfp_text.trim().length < 50) return NextResponse.json({ error: 'RFP text too short.' }, { status: 400 })
 
-    const safe = rfp_text.replace(/[\\"]/g, ' ').replace(/[\u0000-\u001F]/g, ' ').slice(0, 3000)
+    const safe = rfp_text.replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF]/g, ' ').slice(0, 3000)
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

@@ -174,8 +174,13 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Every s
     })
 
     if (!response.ok) {
-      const err = await response.text()
-      throw new Error(`Anthropic error ${response.status}: ${err}`)
+      const errText = await response.text()
+      let errMsg = `Anthropic API error (${response.status})`
+      try {
+        const errJson = JSON.parse(errText)
+        errMsg = errJson?.error?.message || errMsg
+      } catch {}
+      throw new Error(errMsg)
     }
 
     const data = await response.json()
@@ -184,14 +189,16 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Every s
 
     let extracted: any
     try {
-      extracted = JSON.parse(clean)
+      // Remove any BOM or leading whitespace
+      const trimmed = clean.replace(/^\uFEFF/, '').replace(/^\s+/, '')
+      extracted = JSON.parse(trimmed)
     } catch {
       // Try to extract just the JSON object if there's surrounding text
-      const match = clean.match(/\{[\s\S]*\}/)
+      const match = trimmed.match(/\{[\s\S]*\}/)
       if (match) {
         extracted = JSON.parse(match[0])
       } else {
-        throw new Error('Could not parse AI response as JSON. The document may contain unusual characters.')
+        throw new Error('AI returned a response that could not be parsed. Try again or simplify the document text.')
       }
     }
 
@@ -248,6 +255,7 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Every s
       compliance_items: complianceItems,
     })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const msg = String(err?.message || err || 'Unknown error')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -6,18 +6,23 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.ANTHROPIC_API_KEY || api_key || ''
     if (!apiKey) return NextResponse.json({ error: 'No API key configured.' }, { status: 500 })
 
-    const source = rfp_text || dow_text || ''
+    const source = (rfp_text || dow_text || '')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')  // control chars
+      .replace(/\\/g, ' ')   // backslashes
+      .replace(/`/g, "'")      // backticks
+      .trim()
     if (source.trim().length < 50) {
       return NextResponse.json({ error: 'RFP text too short to extract requirements.' }, { status: 400 })
     }
 
+    const safeSrc = source.replace(/[^\x20-\x7E\n\r\t\u0600-\u06FF\u0750-\u077F]/g, ' ').slice(0, 4000)
     const prompt = `You are a senior pre-sales consultant at emaratech Technology Solutions analysing an RFP or Description of Work document.
 
 CLIENT: ${client || '[Client]'}
 PROJECT: ${project || '[Project]'}
 
 DOCUMENT TEXT:
-${source.slice(0, 5000)}
+${safeSrc}
 
 Extract ALL requirements and key information from this document. Be thorough and specific — do not generalise. Every requirement should be traceable back to the source document.
 

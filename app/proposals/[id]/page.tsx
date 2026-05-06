@@ -494,297 +494,396 @@ export default function ProposalWorkspace({ params }: { params: any }) {
 
           {/* ── STAGE 0 ── */}
           {stage==='stage0' && (
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+
+              {/* Run extraction card */}
               <div className="card">
-                <div className="card-title">Stage 0 — Requirements extraction and compliance sheet</div>
+                <div className="card-title">Stage 0 — Requirements extraction</div>
                 <p style={{fontSize:12,color:'var(--textL)',lineHeight:1.7,marginBottom:16}}>
-                  AI will read the RFP or Description of Work and extract all requirements into a structured compliance sheet.
-                  You can edit, add, or remove items before confirming. Once confirmed, these requirements track coverage through Stage 1 and Stage 2.
+                  AI reads the RFP and extracts all requirements into a structured compliance sheet. Review and edit before confirming — once confirmed, Stage 1 unlocks.
                 </p>
                 {!(proposal.rfp_text||proposal.dow_text) && (
-                  <div className="callout callout-amber" style={{marginBottom:12}}>No RFP text found. Go back to the proposals list and edit this proposal to add RFP text or upload a document.</div>
+                  <div className="callout callout-amber" style={{marginBottom:12}}>No document found. Go back to proposals and edit this proposal to add RFP text.</div>
                 )}
                 <div className="row-btns">
                   <button className="btn-primary" onClick={runExtraction} disabled={extracting||!(proposal.rfp_text||proposal.dow_text)}>
-                    {extracting?'Extracting requirements...':stage0Data?'Re-run extraction':'Extract requirements'}
+                    {extracting ? 'Extracting — this takes 20-30 seconds...' : stage0Data ? 'Re-run extraction' : 'Extract requirements'}
                   </button>
                   {extracting && <div className="spinner" />}
-                  {extracting && <span style={{fontSize:11,color:'var(--textL)'}}>This may take 20-30 seconds...</span>}
                 </div>
               </div>
 
-              {stage0Data && (
-                <>
-                  {/* Summary stats */}
-                  <div className="metric-row">
-                    <div className="metric"><div className="m-label">Total items</div><div className="m-val">{complianceItems.length}</div><div className="m-sub">In compliance sheet</div></div>
-                    <div className="metric"><div className="m-label">Functional reqs</div><div className="m-val" style={{color:'var(--dark)'}}>{stage0Data.extraction_summary?.total_functional||stage0Data.functional_requirements?.length||0}</div></div>
-                    <div className="metric"><div className="m-label">Risks</div><div className="m-val" style={{color:'var(--red)'}}>{stage0Data.risks?.length||0}</div><div className="m-sub">{(stage0Data.extraction_summary?.critical_risks||0)} critical</div></div>
-                    <div className="metric"><div className="m-label">Mandatory docs</div><div className="m-val" style={{color:'var(--amber)'}}>{stage0Data.mandatory_submissions?.length||0}</div><div className="m-sub">Required in submission</div></div>
-                    <div className="metric"><div className="m-label">Confidence</div><div style={{marginTop:6}}><span className={`pill ${stage0Data.extraction_summary?.confidence==='High'?'pill-green':stage0Data.extraction_summary?.confidence==='Medium'?'pill-amber':'pill-red'}`}>{stage0Data.extraction_summary?.confidence||'—'}</span></div><div className="m-sub" style={{fontSize:10,marginTop:4}}>{stage0Data.extraction_summary?.confidence_note?.slice(0,40)}</div></div>
+              {stage0Data && (<>
+
+                {/* ── OVERVIEW + SUBMISSION INFO ── */}
+                <div className="card">
+                  <div className="card-title">Project overview</div>
+                  <p style={{fontSize:13,lineHeight:1.8,color:'var(--text)',marginBottom:16}}>{stage0Data.overview}</p>
+                  <div className="g4">
+                    {[
+                      ['Submission deadline', stage0Data.submission_deadline, true],
+                      ['Project duration', stage0Data.project_duration, false],
+                      ['Proposal validity', stage0Data.proposal_validity, false],
+                      ['Confidence', stage0Data.confidence, false],
+                    ].map(([label, val, isCritical]) => (
+                      <div key={String(label)} style={{background:isCritical?'var(--redL)':'var(--grayL)',border:`1px solid ${isCritical?'#F0C0C0':'var(--grayM)'}`,borderRadius:8,padding:'10px 14px'}}>
+                        <div style={{fontSize:10,color:isCritical?'var(--red)':'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:5}}>{String(label)}{isCritical?' ⚠':''}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:isCritical?'var(--red)':'var(--dark)'}}>{String(val||'TBD')}</div>
+                      </div>
+                    ))}
                   </div>
-                  {stage0Data.extraction_summary?.top_3_risks?.length > 0 && (
-                    <div style={{background:'var(--redL)',border:'1px solid #F0C0C0',borderLeft:'4px solid var(--red)',borderRadius:'0 8px 8px 0',padding:'12px 16px'}}>
-                      <div style={{fontSize:11,fontWeight:700,color:'var(--red)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.05em'}}>Top 3 critical risks</div>
-                      {stage0Data.extraction_summary.top_3_risks.map((r: string, i: number) => (
-                        <div key={i} style={{display:'flex',gap:8,fontSize:12,color:'var(--red)',marginBottom:4,alignItems:'flex-start'}}>
-                          <span style={{flexShrink:0,fontWeight:700}}>{i+1}.</span>{r}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                </div>
 
-                  {/* Submission timeline - editable */}
-                  {stage0Data.submission_timeline && (
-                    <div className="card">
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                        <div className="card-title" style={{margin:0}}>Submission timeline</div>
-                        <span style={{fontSize:10,color:'var(--textL)'}}>Click any field to edit</span>
-                      </div>
-                      <div className="g4" style={{marginBottom:16}}>
-                        {[
-                          ['submission_deadline','Submission deadline ⚠','var(--red)'],
-                          ['project_start','Project start','var(--dark)'],
-                          ['delivery_duration','Delivery duration','var(--dark)'],
-                          ['proposal_validity','Proposal validity','var(--dark)'],
-                        ].map(([field, label, color]) => (
-                          <div key={field} style={{background: field==='submission_deadline'?'var(--redL)':'var(--grayL)',borderRadius:8,padding:'10px 14px',border:field==='submission_deadline'?'1px solid #F0C0C0':'1px solid var(--grayM)'}}>
-                            <div style={{fontSize:10,color: field==='submission_deadline'?'var(--red)':'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>{label}</div>
-                            {editingTimeline===field
-                              ? <input type="text" autoFocus value={(stage0Data.submission_timeline as any)[field]||''} onChange={e=>updateTimelineField(field,e.target.value)} onBlur={()=>setEditingTimeline(null)}
-                                  style={{width:'100%',fontSize:13,fontWeight:700,color:color as string,background:'transparent',border:'none',borderBottom:'2px solid var(--bright)',outline:'none',fontFamily:'inherit',padding:'2px 0'}} />
-                              : <div onClick={()=>setEditingTimeline(field)} style={{fontSize:13,fontWeight:700,color:color as string,cursor:'pointer',minHeight:20}}>{(stage0Data.submission_timeline as any)[field]||'Click to add'}</div>
-                            }
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                          <div style={{fontSize:10,fontWeight:700,color:'var(--textL)',textTransform:'uppercase' as const,letterSpacing:'.05em'}}>Key dates</div>
-                          <button className="btn-second btn-small" onClick={addKeyDate}>+ Add date</button>
-                        </div>
-                        {(stage0Data.submission_timeline.key_dates||[]).map((kd: any, i: number) => (
-                          <div key={i} style={{display:'flex',gap:8,padding:'6px 0',borderBottom:'1px solid var(--grayM)',alignItems:'center'}}>
-                            <input type="text" value={kd.date||''} onChange={e=>updateKeyDate(i,'date',e.target.value)} placeholder="Date"
-                              style={{width:140,fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--grayM)',fontFamily:'inherit',background:kd.critical?'var(--redL)':'var(--grayL)',fontWeight:600,color:kd.critical?'var(--red)':'var(--dark)',outline:'none'}} />
-                            <input type="text" value={kd.event||''} onChange={e=>updateKeyDate(i,'event',e.target.value)} placeholder="Event description"
-                              style={{flex:1,fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--grayM)',fontFamily:'inherit',background:'var(--grayL)',outline:'none'}} />
-                            <label style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'var(--red)',cursor:'pointer',flexShrink:0}}>
-                              <input type="checkbox" checked={kd.critical||false} onChange={e=>updateKeyDate(i,'critical',String(e.target.checked))} style={{accentColor:'var(--red)'}} />Critical
-                            </label>
-                            <button onClick={()=>deleteKeyDate(i)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Compliance sheet - editable */}
-                  <div className="card">
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                      <div className="card-title" style={{margin:0}}>Compliance tracking sheet — edit before confirming</div>
-                      <button className="btn-second btn-small" onClick={addComplianceItem}>+ Add row</button>
-                    </div>
-                    <div style={{overflowX:'auto'}}>
-                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                        <thead>
-                          <tr style={{background:'var(--dark)'}}>
-                            <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:80}}>Ref</th>
-                            <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:100}}>Type</th>
-                            <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:100}}>Category</th>
-                            <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Requirement</th>
-                            <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:80}}>Priority</th>
-                            <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:60}}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {complianceItems.map((item, i) => (
-                            <tr key={item.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--grayL)':'#fff'}}>
-                              <td style={{padding:'8px 10px',fontWeight:700,color:'var(--bright)',fontSize:10}}>{item.ref}</td>
-                              <td style={{padding:'8px 10px'}}>
-                                <select value={item.type} onChange={e=>updateComplianceItem(item.ref,'type',e.target.value)}
-                                  style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:'transparent',fontFamily:'inherit',width:'100%'}}>
-                                  {['Functional','Non-functional','Technical','Constraint','Risk'].map(t=><option key={t}>{t}</option>)}
-                                </select>
-                              </td>
-                              <td style={{padding:'8px 10px'}}>
-                                <input type="text" value={item.category} onChange={e=>updateComplianceItem(item.ref,'category',e.target.value)}
-                                  style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:'transparent',width:'100%',fontFamily:'inherit'}} />
-                              </td>
-                              <td style={{padding:'8px 10px'}}>
-                                {editingReq===item.ref
-                                  ? <textarea value={item.requirement} onChange={e=>updateComplianceItem(item.ref,'requirement',e.target.value)} onBlur={()=>setEditingReq(null)}
-                                      style={{width:'100%',fontSize:11,fontFamily:'inherit',border:'1px solid var(--bright)',borderRadius:4,padding:'4px',resize:'vertical',minHeight:60}} autoFocus />
-                                  : <div onClick={()=>setEditingReq(item.ref)} style={{cursor:'pointer',lineHeight:1.5,color:'var(--text)'}}>{item.requirement}</div>
-                                }
-                              </td>
-                              <td style={{padding:'8px 10px',textAlign:'center'}}>
-                                <select value={item.priority} onChange={e=>updateComplianceItem(item.ref,'priority',e.target.value)}
-                                  style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:item.priority==='Must'?'var(--redL)':item.priority==='Should'?'var(--amberL)':'var(--off)',fontFamily:'inherit',color:item.priority==='Must'?'var(--red)':item.priority==='Should'?'var(--amber)':'var(--teal)',fontWeight:700}}>
-                                  <option>Must</option><option>Should</option><option>Nice</option>
-                                </select>
-                              </td>
-                              <td style={{padding:'8px 10px',textAlign:'center'}}>
-                                <button onClick={()=>deleteComplianceItem(item.ref)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14}}>✕</button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                {/* ── COMMERCIAL TERMS — editable ── */}
+                <div className="card">
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div className="card-title" style={{margin:0}}>Commercial terms</div>
+                    <span style={{fontSize:10,color:'var(--textL)'}}>Click any field to edit</span>
                   </div>
-
-                  {/* Risks - editable */}
-                  <div className="card">
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                      <div className="card-title" style={{margin:0}}>Risks · click any cell to edit</div>
-                      <button className="btn-second btn-small" onClick={addRisk}>+ Add risk</button>
-                    </div>
-                    {(!stage0Data.risks || stage0Data.risks.length === 0) && (
-                      <div style={{fontSize:12,color:'var(--grayB)',textAlign:'center',padding:'20px 0'}}>No risks extracted — click Add risk to add manually</div>
-                    )}
-                    {(stage0Data.risks||[]).map((r: any, i: number) => {
-                      const rCol = (v: string) => v==='High'?'var(--red)':v==='Medium'?'var(--amber)':'var(--green)'
-                      const rBg = (v: string) => v==='High'?'var(--redL)':v==='Medium'?'var(--amberL)':'var(--greenL)'
-                      return (
-                        <div key={r.ref} style={{border:'1px solid var(--grayM)',borderLeft:`4px solid ${rCol(r.impact)}`,borderRadius:'0 8px 8px 0',marginBottom:8,padding:'12px 14px',background:i%2===0?'var(--grayL)':'#fff'}}>
-                          <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
-                            <span style={{fontSize:10,fontWeight:700,color:rCol(r.impact),flexShrink:0,minWidth:60}}>{r.ref}</span>
-                            {editingRisk===r.ref+'-risk'
-                              ? <textarea autoFocus value={r.risk||''} onChange={e=>updateRisk(r.ref,'risk',e.target.value)} onBlur={()=>setEditingRisk(null)}
-                                  style={{flex:1,fontSize:12,fontWeight:600,fontFamily:'inherit',border:'1px solid var(--bright)',borderRadius:6,padding:'6px',resize:'vertical',minHeight:50,outline:'none'}} />
-                              : <div onClick={()=>setEditingRisk(r.ref+'-risk')} style={{flex:1,fontSize:12,fontWeight:600,color:'var(--dark)',cursor:'pointer',lineHeight:1.5}}>{r.risk||'Click to edit'}</div>
-                            }
-                            <button onClick={()=>deleteRisk(r.ref)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
-                          </div>
-                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto auto',gap:8,alignItems:'center'}}>
-                            <div>
-                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Financial exposure</div>
-                              {editingRisk===r.ref+'-exp'
-                                ? <input autoFocus type="text" value={r.financial_exposure||''} onChange={e=>updateRisk(r.ref,'financial_exposure',e.target.value)} onBlur={()=>setEditingRisk(null)}
-                                    style={{width:'100%',fontSize:11,fontWeight:700,color:'var(--red)',border:'1px solid var(--bright)',borderRadius:4,padding:'3px 6px',fontFamily:'inherit',outline:'none'}} />
-                                : <div onClick={()=>setEditingRisk(r.ref+'-exp')} style={{fontSize:11,fontWeight:700,color:r.financial_exposure?'var(--red)':'var(--grayB)',cursor:'pointer'}}>{r.financial_exposure||'None stated — click to add'}</div>
-                              }
+                  <div className="g3">
+                    {[
+                      ['pricing_model','Pricing model'],
+                      ['currency','Currency'],
+                      ['vat','VAT'],
+                      ['payment','Payment terms'],
+                      ['bid_bond','Bid bond'],
+                      ['performance_bond','Performance bond'],
+                      ['warranty','Warranty period'],
+                      ['validity','Proposal validity'],
+                      ['boq_format','BoQ format required'],
+                    ].map(([field, label]) => (
+                      <div key={field} style={{background:'var(--grayL)',border:'1px solid var(--grayM)',borderRadius:8,padding:'10px 14px'}}>
+                        <div style={{fontSize:10,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>{label}</div>
+                        {editingCommercial===field
+                          ? <textarea autoFocus value={(stage0Data.commercial_terms as any)?.[field]||''} onChange={e=>updateCommercialField(field,e.target.value)} onBlur={()=>setEditingCommercial(null)}
+                              style={{width:'100%',fontSize:12,fontWeight:600,border:'1px solid var(--bright)',borderRadius:6,padding:'4px 6px',fontFamily:'inherit',resize:'vertical',minHeight:40,outline:'none',background:'#fff'}} />
+                          : <div onClick={()=>setEditingCommercial(field)} style={{fontSize:12,fontWeight:600,color:(stage0Data.commercial_terms as any)?.[field]?'var(--dark)':'var(--grayB)',cursor:'pointer',lineHeight:1.5,minHeight:18}}>
+                              {(stage0Data.commercial_terms as any)?.[field]||'Not stated — click to add'}
                             </div>
-                            <div>
-                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Mitigation</div>
-                              {editingRisk===r.ref+'-mit'
-                                ? <input autoFocus type="text" value={r.mitigation||''} onChange={e=>updateRisk(r.ref,'mitigation',e.target.value)} onBlur={()=>setEditingRisk(null)}
-                                    style={{width:'100%',fontSize:11,border:'1px solid var(--bright)',borderRadius:4,padding:'3px 6px',fontFamily:'inherit',outline:'none'}} />
-                                : <div onClick={()=>setEditingRisk(r.ref+'-mit')} style={{fontSize:11,color:r.mitigation?'var(--textM)':'var(--grayB)',cursor:'pointer'}}>{r.mitigation||'Click to add mitigation'}</div>
-                              }
-                            </div>
-                            <div>
-                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Likelihood</div>
-                              <select value={r.likelihood||'Medium'} onChange={e=>updateRisk(r.ref,'likelihood',e.target.value)}
-                                style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:rBg(r.likelihood),color:rCol(r.likelihood),fontWeight:700,fontFamily:'inherit',cursor:'pointer'}}>
-                                <option>High</option><option>Medium</option><option>Low</option>
-                              </select>
-                            </div>
-                            <div>
-                              <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Impact</div>
-                              <select value={r.impact||'Medium'} onChange={e=>updateRisk(r.ref,'impact',e.target.value)}
-                                style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:rBg(r.impact),color:rCol(r.impact),fontWeight:700,fontFamily:'inherit',cursor:'pointer'}}>
-                                <option>High</option><option>Medium</option><option>Low</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Mandatory submissions */}
-                  {stage0Data.mandatory_submissions?.length > 0 && (
-                    <div className="card">
-                      <div className="card-title">Mandatory submission documents — missing any of these may disqualify the bid</div>
-                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                        <thead><tr style={{background:'var(--dark)'}}>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:80}}>Ref</th>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Document required</th>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:200}}>Must contain</th>
-                          <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:160}}>Consequence if missing</th>
-                        </tr></thead>
-                        <tbody>
-                          {stage0Data.mandatory_submissions.map((m: any, i: number) => (
-                            <tr key={m.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--redL)':'#fff9f9'}}>
-                              <td style={{padding:'8px 10px',fontWeight:700,color:'var(--red)',fontSize:10}}>{m.ref}</td>
-                              <td style={{padding:'8px 10px',fontWeight:600,color:'var(--dark)'}}>{m.document}</td>
-                              <td style={{padding:'8px 10px',color:'var(--textM)',fontSize:10}}>{m.description}</td>
-                              <td style={{padding:'8px 10px',color:'var(--red)',fontSize:10,fontWeight:600}}>{m.consequence}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Compliance standards */}
-                  {stage0Data.compliance_standards?.length > 0 && (
-                    <div className="card">
-                      <div className="card-title">Compliance standards and certifications required</div>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-                        {stage0Data.compliance_standards.map((s: any) => (
-                          <div key={s.ref} style={{background:'var(--off)',border:'1px solid var(--bright)',borderRadius:8,padding:'8px 12px',minWidth:160}}>
-                            <div style={{fontSize:10,fontWeight:700,color:'var(--bright)',marginBottom:3}}>{s.ref}</div>
-                            <div style={{fontSize:12,fontWeight:600,color:'var(--dark)',marginBottom:3}}>{s.standard}</div>
-                            {s.evidence_required && <div style={{fontSize:10,color:'var(--textL)'}}>{s.evidence_required}</div>}
-                          </div>
-                        ))}
+                        }
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                </div>
 
-                  {/* Commercial terms - editable */}
+                {/* ── SUBMISSION TIMELINE — editable ── */}
+                <div className="card">
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div className="card-title" style={{margin:0}}>Submission timeline</div>
+                    <button className="btn-second btn-small" onClick={addKeyDate}>+ Add date</button>
+                  </div>
+                  {(stage0Data.key_dates||[]).map((kd: any, i: number) => (
+                    <div key={i} style={{display:'flex',gap:8,padding:'6px 0',borderBottom:'1px solid var(--grayM)',alignItems:'center'}}>
+                      <input type="text" value={kd.date||''} onChange={e=>updateKeyDate(i,'date',e.target.value)} placeholder="Date"
+                        style={{width:160,fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid var(--grayM)',fontFamily:'inherit',background:kd.critical?'var(--redL)':'var(--grayL)',fontWeight:600,color:kd.critical?'var(--red)':'var(--dark)',outline:'none'}} />
+                      <input type="text" value={kd.event||''} onChange={e=>updateKeyDate(i,'event',e.target.value)} placeholder="Event"
+                        style={{flex:1,fontSize:12,padding:'5px 8px',borderRadius:6,border:'1px solid var(--grayM)',fontFamily:'inherit',background:'var(--grayL)',outline:'none'}} />
+                      <label style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--red)',cursor:'pointer',flexShrink:0,fontWeight:600}}>
+                        <input type="checkbox" checked={kd.critical||false} onChange={e=>updateKeyDate(i,'critical',String(e.target.checked))} style={{accentColor:'var(--red)'}} />Critical
+                      </label>
+                      <button onClick={()=>deleteKeyDate(i)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14}}>✕</button>
+                    </div>
+                  ))}
+                  {(!stage0Data.key_dates||stage0Data.key_dates.length===0) && (
+                    <div style={{fontSize:12,color:'var(--grayB)',padding:'12px 0'}}>No key dates extracted — click Add date</div>
+                  )}
+                </div>
+
+                {/* ── SCOPE OF WORK ── */}
+                <div className="card">
+                  <div className="card-title">Scope of work</div>
+                  <div style={{fontSize:13,lineHeight:1.8,color:'var(--text)',whiteSpace:'pre-wrap'}}>{stage0Data.scope_of_work}</div>
+                </div>
+
+                {/* ── PHASES ── */}
+                {stage0Data.phases?.length > 0 && (
                   <div className="card">
-                    <div className="card-title">Commercial terms · click any field to edit</div>
-                    <div className="g3">
-                      {[
-                        ['estimated_value','Estimated value'],
-                        ['bid_bond','Bid bond requirement'],
-                        ['performance_bond','Performance bond'],
-                        ['payment_terms','Payment terms'],
-                        ['warranty_period','Warranty period'],
-                        ['validity_period','Proposal validity'],
-                        ['pricing_structure','Pricing structure required'],
-                      ].map(([field, label]) => (
-                        <div key={field} style={{background:'var(--grayL)',borderRadius:8,padding:'10px 14px',border:'1px solid var(--grayM)'}}>
-                          <div style={{fontSize:10,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>{label}</div>
-                          {editingCommercial===field
-                            ? <textarea autoFocus value={(stage0Data.commercial_terms as any)?.[field]||''} onChange={e=>updateCommercialField(field,e.target.value)} onBlur={()=>setEditingCommercial(null)}
-                                style={{width:'100%',fontSize:12,fontWeight:600,color:'var(--dark)',border:'1px solid var(--bright)',borderRadius:6,padding:'4px 6px',fontFamily:'inherit',resize:'vertical',minHeight:48,outline:'none'}} />
-                            : <div onClick={()=>setEditingCommercial(field)} style={{fontSize:12,fontWeight:600,color:(stage0Data.commercial_terms as any)?.[field]?'var(--dark)':'var(--grayB)',cursor:'pointer',lineHeight:1.5,minHeight:20}}>
-                                {(stage0Data.commercial_terms as any)?.[field]||'Not stated — click to add'}
+                    <div className="card-title">Delivery phases</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                      {stage0Data.phases.map((ph: any, i: number) => (
+                        <div key={i} style={{border:'1px solid var(--grayM)',borderLeft:'4px solid var(--bright)',borderRadius:'0 10px 10px 0',padding:'14px 16px',background:i%2===0?'var(--grayL)':'#fff'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                            <div style={{background:'var(--dark)',color:'var(--bright)',fontWeight:700,fontSize:12,padding:'4px 12px',borderRadius:20}}>{ph.name}</div>
+                            {ph.duration && <span style={{fontSize:11,color:'var(--textL)'}}>{ph.duration}</span>}
+                            {ph.go_live && <span style={{fontSize:11,fontWeight:700,color:'var(--green)',background:'var(--greenL)',padding:'3px 10px',borderRadius:20}}>Go-live: {ph.go_live}</span>}
+                          </div>
+                          {ph.scope?.length > 0 && (
+                            <div style={{marginBottom:8}}>
+                              <div style={{fontSize:10,fontWeight:700,color:'var(--textL)',textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>Scope</div>
+                              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                                {ph.scope.map((s: string, j: number) => (
+                                  <span key={j} style={{fontSize:11,background:'var(--off)',border:'1px solid var(--grayM)',borderRadius:20,padding:'3px 10px',color:'var(--text)'}}>{s}</span>
+                                ))}
                               </div>
-                          }
+                            </div>
+                          )}
+                          {ph.deliverables?.length > 0 && (
+                            <div>
+                              <div style={{fontSize:10,fontWeight:700,color:'var(--textL)',textTransform:'uppercase' as const,letterSpacing:'.05em',marginBottom:6}}>Deliverables</div>
+                              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                                {ph.deliverables.map((d: string, j: number) => (
+                                  <span key={j} style={{fontSize:11,background:'var(--greenL)',border:'1px solid #9FE1CB',borderRadius:20,padding:'3px 10px',color:'#0F6E56'}}>{d}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
+                )}
 
-                  {/* Additional notes */}
-                  {stage0Data.additional_notes && (
-                    <div className="callout"><strong>Additional notes: </strong>{stage0Data.additional_notes}</div>
-                  )}
+                {/* ── FUNCTIONAL REQUIREMENTS ── */}
+                {stage0Data.functional_requirements?.length > 0 && (
+                  <div className="card">
+                    <div className="card-title">Functional requirements ({stage0Data.functional_requirements.length})</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                      <thead><tr style={{background:'var(--dark)'}}>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:70}}>Ref</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:100}}>Phase</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:110}}>Category</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Requirement</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:70}}>Priority</th>
+                      </tr></thead>
+                      <tbody>
+                        {stage0Data.functional_requirements.map((r: any, i: number) => (
+                          <tr key={r.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--grayL)':'#fff'}}>
+                            <td style={{padding:'8px 10px',fontWeight:700,color:'var(--bright)',fontSize:10}}>{r.ref}</td>
+                            <td style={{padding:'8px 10px',fontSize:10,color:'var(--textL)'}}>{r.phase||'All'}</td>
+                            <td style={{padding:'8px 10px',fontSize:10,color:'var(--textM)'}}>{r.category}</td>
+                            <td style={{padding:'8px 10px',lineHeight:1.5}}>{r.requirement}</td>
+                            <td style={{padding:'8px 10px',textAlign:'center'}}>
+                              <span style={{background:r.priority==='Must'?'var(--redL)':'var(--amberL)',color:r.priority==='Must'?'var(--red)':'var(--amber)',padding:'2px 8px',borderRadius:20,fontSize:9,fontWeight:700}}>{r.priority}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-                  {/* Save and confirm */}
-                  <div style={{display:'flex',gap:12,alignItems:'center',background:'var(--dark)',borderRadius:12,padding:20}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Confirm requirements and proceed to Stage 1</div>
-                      <div style={{fontSize:12,color:'rgba(255,255,255,.6)'}}>Once confirmed, these requirements will track coverage through Stage 1 and Stage 2. You can still view and update them via the compliance sidebar.</div>
-                    </div>
-                    <div style={{display:'flex',gap:8,flexShrink:0}}>
-                      <button className="btn-second" onClick={saveStage0Draft} style={{whiteSpace:'nowrap',background:'rgba(255,255,255,.1)',color:'var(--grayB)',border:'1px solid rgba(255,255,255,.2)'}}>
-                        Save draft
-                      </button>
-                      {saved && <span style={{fontSize:12,color:'var(--bright)',alignSelf:'center'}}>✓ Saved</span>}
-                      <button className="btn-success" onClick={confirmStage0} style={{whiteSpace:'nowrap'}}>
-                        ✓ Confirm and proceed →
-                      </button>
+                {/* ── NON-FUNCTIONAL REQUIREMENTS ── */}
+                {stage0Data.non_functional_requirements?.length > 0 && (
+                  <div className="card">
+                    <div className="card-title">Non-functional requirements ({stage0Data.non_functional_requirements.length})</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                      <thead><tr style={{background:'var(--dark)'}}>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:70}}>Ref</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:130}}>Category</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Requirement</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:150}}>Target</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:70}}>Priority</th>
+                      </tr></thead>
+                      <tbody>
+                        {stage0Data.non_functional_requirements.map((r: any, i: number) => (
+                          <tr key={r.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--grayL)':'#fff'}}>
+                            <td style={{padding:'8px 10px',fontWeight:700,color:'var(--bright)',fontSize:10}}>{r.ref}</td>
+                            <td style={{padding:'8px 10px',color:'var(--textM)',fontSize:10,fontWeight:600}}>{r.category}</td>
+                            <td style={{padding:'8px 10px',lineHeight:1.5}}>{r.requirement}</td>
+                            <td style={{padding:'8px 10px',fontSize:11,fontWeight:600,color:'var(--dark)'}}>{r.target||'—'}</td>
+                            <td style={{padding:'8px 10px',textAlign:'center'}}>
+                              <span style={{background:r.priority==='Must'?'var(--redL)':'var(--amberL)',color:r.priority==='Must'?'var(--red)':'var(--amber)',padding:'2px 8px',borderRadius:20,fontSize:9,fontWeight:700}}>{r.priority}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* ── TECHNICAL REQUIREMENTS ── */}
+                {stage0Data.technical_requirements?.length > 0 && (
+                  <div className="card">
+                    <div className="card-title">Technical requirements ({stage0Data.technical_requirements.length})</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                      <thead><tr style={{background:'var(--dark)'}}>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:70}}>Ref</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:120}}>Area</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Requirement</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:180}}>Constraint</th>
+                      </tr></thead>
+                      <tbody>
+                        {stage0Data.technical_requirements.map((r: any, i: number) => (
+                          <tr key={r.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--grayL)':'#fff'}}>
+                            <td style={{padding:'8px 10px',fontWeight:700,color:'var(--bright)',fontSize:10}}>{r.ref}</td>
+                            <td style={{padding:'8px 10px',color:'var(--textM)',fontSize:10,fontWeight:600}}>{r.area}</td>
+                            <td style={{padding:'8px 10px',lineHeight:1.5}}>{r.requirement}</td>
+                            <td style={{padding:'8px 10px',fontSize:10,color:r.constraint?'var(--red)':'var(--grayB)',fontWeight:r.constraint?600:400}}>{r.constraint||'—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* ── MANDATORY SUBMISSION DOCS ── */}
+                {stage0Data.mandatory_submission_docs?.length > 0 && (
+                  <div className="card">
+                    <div className="card-title">Mandatory submission documents — missing any of these may disqualify the bid</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                      <thead><tr style={{background:'var(--dark)'}}>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:70}}>Ref</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Document</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:220}}>Must contain</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:160}}>Consequence</th>
+                      </tr></thead>
+                      <tbody>
+                        {stage0Data.mandatory_submission_docs.map((m: any, i: number) => (
+                          <tr key={m.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'#FFF5F5':'#FFF9F9'}}>
+                            <td style={{padding:'8px 10px',fontWeight:700,color:'var(--red)',fontSize:10}}>{m.ref}</td>
+                            <td style={{padding:'8px 10px',fontWeight:600,color:'var(--dark)'}}>{m.document}</td>
+                            <td style={{padding:'8px 10px',fontSize:10,color:'var(--textM)'}}>{m.detail}</td>
+                            <td style={{padding:'8px 10px',fontSize:10,fontWeight:600,color:'var(--red)'}}>{m.consequence}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* ── RISKS — editable ── */}
+                <div className="card">
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div className="card-title" style={{margin:0}}>Risks ({(stage0Data.risks||[]).length})</div>
+                    <button className="btn-second btn-small" onClick={addRisk}>+ Add risk</button>
+                  </div>
+                  {(stage0Data.risks||[]).map((r: any, i: number) => {
+                    const col = (v: string) => v==='High'?'var(--red)':v==='Medium'?'var(--amber)':'var(--green)'
+                    const bg = (v: string) => v==='High'?'var(--redL)':v==='Medium'?'var(--amberL)':'var(--greenL)'
+                    return (
+                      <div key={r.ref} style={{border:'1px solid var(--grayM)',borderLeft:`4px solid ${col(r.impact)}`,borderRadius:'0 8px 8px 0',marginBottom:8,padding:'12px 14px',background:i%2===0?'#fff':'var(--grayL)'}}>
+                        <div style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:8}}>
+                          <span style={{fontSize:10,fontWeight:700,color:col(r.impact),flexShrink:0,minWidth:70}}>{r.ref}</span>
+                          <span style={{fontSize:10,background:bg(r.impact),color:col(r.impact),padding:'2px 8px',borderRadius:20,fontWeight:700,flexShrink:0}}>{r.category||'Risk'}</span>
+                          {editingRisk===r.ref+'-risk'
+                            ? <textarea autoFocus value={r.risk||''} onChange={e=>updateRisk(r.ref,'risk',e.target.value)} onBlur={()=>setEditingRisk(null)}
+                                style={{flex:1,fontSize:12,fontWeight:600,fontFamily:'inherit',border:'1px solid var(--bright)',borderRadius:6,padding:'6px',resize:'vertical',minHeight:48,outline:'none'}} />
+                            : <div onClick={()=>setEditingRisk(r.ref+'-risk')} style={{flex:1,fontSize:12,fontWeight:600,color:'var(--dark)',cursor:'pointer',lineHeight:1.5}}>{r.risk}</div>
+                          }
+                          <button onClick={()=>deleteRisk(r.ref)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto auto',gap:8,alignItems:'center',paddingLeft:80}}>
+                          <div>
+                            <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Financial exposure</div>
+                            {editingRisk===r.ref+'-exp'
+                              ? <input autoFocus type="text" value={r.financial_exposure||''} onChange={e=>updateRisk(r.ref,'financial_exposure',e.target.value)} onBlur={()=>setEditingRisk(null)}
+                                  style={{width:'100%',fontSize:11,fontWeight:700,color:'var(--red)',border:'1px solid var(--bright)',borderRadius:4,padding:'3px 6px',fontFamily:'inherit',outline:'none'}} />
+                              : <div onClick={()=>setEditingRisk(r.ref+'-exp')} style={{fontSize:11,fontWeight:700,color:r.financial_exposure&&r.financial_exposure!=='None stated'?'var(--red)':'var(--grayB)',cursor:'pointer'}}>
+                                  {r.financial_exposure||'None stated — click to add'}
+                                </div>
+                            }
+                          </div>
+                          <div>
+                            <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Mitigation</div>
+                            {editingRisk===r.ref+'-mit'
+                              ? <input autoFocus type="text" value={r.mitigation||''} onChange={e=>updateRisk(r.ref,'mitigation',e.target.value)} onBlur={()=>setEditingRisk(null)}
+                                  style={{width:'100%',fontSize:11,border:'1px solid var(--bright)',borderRadius:4,padding:'3px 6px',fontFamily:'inherit',outline:'none'}} />
+                              : <div onClick={()=>setEditingRisk(r.ref+'-mit')} style={{fontSize:11,color:r.mitigation?'var(--textM)':'var(--grayB)',cursor:'pointer'}}>{r.mitigation||'Click to add'}</div>
+                            }
+                          </div>
+                          <div>
+                            <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Likelihood</div>
+                            <select value={r.likelihood||'Medium'} onChange={e=>updateRisk(r.ref,'likelihood',e.target.value)}
+                              style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:bg(r.likelihood||'Medium'),color:col(r.likelihood||'Medium'),fontWeight:700,fontFamily:'inherit',cursor:'pointer'}}>
+                              <option>High</option><option>Medium</option><option>Low</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={{fontSize:9,color:'var(--textL)',fontWeight:700,textTransform:'uppercase' as const,marginBottom:3}}>Impact</div>
+                            <select value={r.impact||'Medium'} onChange={e=>updateRisk(r.ref,'impact',e.target.value)}
+                              style={{fontSize:10,padding:'3px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:bg(r.impact||'Medium'),color:col(r.impact||'Medium'),fontWeight:700,fontFamily:'inherit',cursor:'pointer'}}>
+                              <option>High</option><option>Medium</option><option>Low</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* ── EVALUATION CRITERIA ── */}
+                {stage0Data.evaluation_criteria?.length > 0 && (
+                  <div className="card">
+                    <div className="card-title">Evaluation criteria</div>
+                    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                      {stage0Data.evaluation_criteria.map((e: any, i: number) => (
+                        <div key={i} style={{background:'var(--grayL)',border:'1px solid var(--grayM)',borderRadius:10,padding:'12px 16px',minWidth:160}}>
+                          <div style={{fontSize:11,fontWeight:700,color:'var(--dark)',marginBottom:4}}>{e.criterion}</div>
+                          <div style={{fontSize:22,fontWeight:700,color:'var(--bright)',marginBottom:2}}>{e.weight}</div>
+                          {e.threshold && <div style={{fontSize:10,color:'var(--amber)',fontWeight:600}}>Pass: {e.threshold}</div>}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </>
-              )}
+                )}
+
+                {/* ── ADDITIONAL NOTES ── */}
+                {stage0Data.additional_notes && (
+                  <div className="callout">
+                    <strong style={{display:'block',marginBottom:4}}>Additional notes and observations</strong>
+                    {stage0Data.additional_notes}
+                  </div>
+                )}
+
+                {/* ── COMPLIANCE SHEET PREVIEW ── */}
+                <div className="card">
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div className="card-title" style={{margin:0}}>Compliance tracking sheet ({complianceItems.length} items)</div>
+                    <button className="btn-second btn-small" onClick={addComplianceItem}>+ Add row</button>
+                  </div>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                      <thead><tr style={{background:'var(--dark)'}}>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:70}}>Ref</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left',width:100}}>Type</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'left'}}>Requirement</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:70}}>Priority</th>
+                        <th style={{color:'var(--bright)',padding:'8px 10px',textAlign:'center',width:50}}></th>
+                      </tr></thead>
+                      <tbody>
+                        {complianceItems.map((item, i) => (
+                          <tr key={item.ref} style={{borderBottom:'1px solid var(--grayM)',background:i%2===0?'var(--grayL)':'#fff'}}>
+                            <td style={{padding:'8px 10px',fontWeight:700,color:'var(--bright)',fontSize:10}}>{item.ref}</td>
+                            <td style={{padding:'8px 10px'}}>
+                              <span style={{fontSize:9,padding:'2px 8px',borderRadius:20,fontWeight:700,background:item.type==='Risk'?'var(--redL)':item.type==='Mandatory doc'?'var(--amberL)':'var(--off)',color:item.type==='Risk'?'var(--red)':item.type==='Mandatory doc'?'var(--amber)':'var(--textL)'}}>{item.type}</span>
+                            </td>
+                            <td style={{padding:'8px 10px',lineHeight:1.5}}>
+                              {editingReq===item.ref
+                                ? <textarea autoFocus value={item.requirement} onChange={e=>updateComplianceItem(item.ref,'requirement',e.target.value)} onBlur={()=>setEditingReq(null)}
+                                    style={{width:'100%',fontSize:11,fontFamily:'inherit',border:'1px solid var(--bright)',borderRadius:4,padding:'4px',resize:'vertical',minHeight:48,outline:'none'}} />
+                                : <div onClick={()=>setEditingReq(item.ref)} style={{cursor:'pointer',lineHeight:1.5}}>{item.requirement}</div>
+                              }
+                            </td>
+                            <td style={{padding:'8px 10px',textAlign:'center'}}>
+                              <select value={item.priority} onChange={e=>updateComplianceItem(item.ref,'priority',e.target.value)}
+                                style={{fontSize:10,padding:'2px 6px',borderRadius:4,border:'1px solid var(--grayM)',background:item.priority==='Must'?'var(--redL)':item.priority==='Should'?'var(--amberL)':'var(--off)',color:item.priority==='Must'?'var(--red)':item.priority==='Should'?'var(--amber)':'var(--teal)',fontWeight:700}}>
+                                <option>Must</option><option>Should</option><option>Nice</option>
+                              </select>
+                            </td>
+                            <td style={{padding:'8px 10px',textAlign:'center'}}>
+                              <button onClick={()=>deleteComplianceItem(item.ref)} style={{background:'none',border:'none',color:'var(--grayB)',cursor:'pointer',fontSize:14}}>✕</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* ── CONFIRM ── */}
+                <div style={{display:'flex',gap:12,alignItems:'center',background:'var(--dark)',borderRadius:12,padding:20}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Confirm and proceed to Stage 1</div>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,.6)'}}>Saves all edits and unlocks Stage 1. Requirements will track coverage throughout the proposal.</div>
+                  </div>
+                  <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
+                    <button onClick={saveStage0Draft} style={{padding:'9px 18px',background:'rgba(255,255,255,.1)',color:'var(--grayB)',border:'1px solid rgba(255,255,255,.2)',borderRadius:8,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>Save draft</button>
+                    {saved && <span style={{fontSize:12,color:'var(--bright)'}}>✓ Saved</span>}
+                    <button className="btn-success" onClick={confirmStage0}>✓ Confirm and proceed →</button>
+                  </div>
+                </div>
+
+              </>)}
             </div>
           )}
 

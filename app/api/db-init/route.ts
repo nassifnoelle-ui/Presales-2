@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@vercel/postgres'
 
+export async function GET() {
+  return POST(new Request('http://localhost/api/db-init', { method: 'POST' }) as any)
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Proposals table
